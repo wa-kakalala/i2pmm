@@ -20,3 +20,8 @@ lsmod | grep i2pmm
 ```shell
 dmesg 
 ```
+
+##  Reference
+
+\[ CSDN: Zzxy1999\_ ] : https://blog.csdn.net/qq_40955029/article/details/124504711
+

@@ -5,35 +5,42 @@
 #include <linux/netfilter_ipv4.h>
 
 /**********function define begin**********/
-unsigned int hook_proc( void * priv, struct sk_buff * skb, 
+unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb, 
+		        const struct nf_hook_state * state );
+
+unsigned int nf_in_hook_proc( void * priv, struct sk_buff * skb, 
 		        const struct nf_hook_state * state );
 
 /**********function define end************/
 
-static struct nf_hook_ops nf_local_in = {
-	.hook = hook_proc,
+static struct nf_hook_ops nf_local_out = {
+	.hook = nf_out_hook_proc,
 	.priv = NULL,
 	.pf = PF_INET,
 	.hooknum = NF_INET_LOCAL_OUT ,
 	.priority = NF_IP_PRI_FIRST ,
 };
 
-/*
 static struct nf_hook_ops nf_local_in = {
-	.hook = 
+	.hook = nf_in_hook_proc,
+	.priv = NULL,
 	.pf = PF_INET,
 	.hooknum = NF_INET_LOCAL_IN ,
 	.priority = NF_IP_PRI_FIRST ,
-	.owner = THIS_MODULE
 };
-*/
 
-unsigned int hook_proc( void * priv, struct sk_buff * skb, 
+unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb, 
 		        const struct nf_hook_state * state ){
     printk(KERN_INFO"hook_proc");
     return NF_ACCEPT;
 }
 
+
+unsigned int nf_in_hook_proc( void * priv, struct sk_buff * skb, 
+		        const struct nf_hook_state * state ){
+    printk(KERN_INFO"hook_proc");
+    return NF_ACCEPT;
+}
 
 static int __init i2pmm_init(void)
 {
