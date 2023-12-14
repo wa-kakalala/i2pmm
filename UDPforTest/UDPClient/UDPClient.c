@@ -65,7 +65,7 @@ int main(int argc,char *argv[]){
     printf("working port    : %d\r\n",server_port);
     printf("working send num: %d\r\n",send_num);
 
-    int socketid = socket(PF_INET,SOCK_DGRAM,0);
+    int socketid = socket(AF_INET,SOCK_DGRAM,0);
     if( socketid == -1 ) {
 	perror("create socket failed !!!");
 	return -1;
@@ -75,18 +75,21 @@ int main(int argc,char *argv[]){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port   = htons(server_port);
-    inet_pton(AF_INET,server_ip,&server_addr.sin_addr.s_addr);
+    inet_pton(AF_INET,server_ip,&(server_addr.sin_addr.s_addr));
 
     // communication
     char sendbuf[SEND_BUF_LEN];
 
     for( int count = 1; count <= send_num ; count ++ ){
         memset(sendbuf,0,sizeof(sendbuf));
-        sprintf(sendbuf,"pull,%d\n",count);
+        sprintf(sendbuf,"pull, %d\n",count);
         sendto(socketid,sendbuf,strlen(sendbuf)+1,0, 
                 (struct sockaddr *)&server_addr,sizeof(server_addr));
+
+        printf("send to [%s:%d]: %s",server_ip,server_port,sendbuf);
     }
 
+    close(socketid);
     return 0;
 }
 

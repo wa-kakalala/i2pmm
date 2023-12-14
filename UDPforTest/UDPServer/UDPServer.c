@@ -42,7 +42,7 @@ int main(int argc,char *argv[]){
 
     printf("working port: %d\r\n",port);
 
-    int socketid = socket(PF_INET,SOCK_DGRAM,0);
+    int socketid = socket(AF_INET,SOCK_DGRAM,0);
     if( socketid == -1 ) {
         printf("create socket failed !!!\r\n");
         return -1;
@@ -52,7 +52,13 @@ int main(int argc,char *argv[]){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port   = htons(port);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    int ret = bind(socketid, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if(ret < 0)
+    {
+        printf("socket bind fail !!!\n");
+        return -1;
+    }
 
     // client info;
     struct sockaddr_in client_addr;
@@ -61,11 +67,17 @@ int main(int argc,char *argv[]){
     // communication
     int num = 0;
     char recvbuf[RECV_BUF_LEN];
+    char client_ip[16]={0};
     while (1) {
         memset(recvbuf,0,sizeof(recvbuf));
+        memset(client_ip,0,sizeof(client_ip));
         num = recvfrom( socketid, recvbuf, sizeof(recvbuf),0,(struct sockaddr * )&client_addr,&client_addr_len);
-        printf("%s",recvbuf);
+
+        inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip, sizeof(client_ip));
+
+        printf("from [%s:%d]: %s",client_ip,ntohs(client_addr.sin_port),recvbuf);
     }
+    close( socketid );
 
     return 0;
 }
