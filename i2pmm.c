@@ -77,11 +77,10 @@ unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb,
     return NF_ACCEPT;
 }
 
-
 unsigned int nf_in_hook_proc( void * priv, struct sk_buff * skb, 
 		        const struct nf_hook_state * state ){
 	struct iphdr *ipheader;   // IP header
-	unsigned char * data_hdr = NULL;
+	char recv_i2pmm[7] = {0};
     //struct udphdr *udpheader; // UDP header
 	if(!skb) return NF_ACCEPT;
 	ipheader = ip_hdr(skb); // retrieve the IP headers from the packet
@@ -95,15 +94,17 @@ unsigned int nf_in_hook_proc( void * priv, struct sk_buff * skb,
 		// 	printk(KERN_INFO"%x",*(skb->data + index));
 		// }
 
-		*(data_hdr+0) = *(skb->data + 0);
-		*(data_hdr+1) = *(skb->data + 1);
-		*(data_hdr+2) = *(skb->data + 2);
-		*(data_hdr+3) = *(skb->data + 3);
-		*(data_hdr+4) = *(skb->data + 4);
-		*(data_hdr+5) = *(skb->data + 5);
+		*(recv_i2pmm+0) = *(skb->data + 0);
+		*(recv_i2pmm+1) = *(skb->data + 1);
+		*(recv_i2pmm+2) = *(skb->data + 2);
+		*(recv_i2pmm+3) = *(skb->data + 3);
+		*(recv_i2pmm+4) = *(skb->data + 4);
+		*(recv_i2pmm+5) = *(skb->data + 5);
+		*(recv_i2pmm+6) = '\0';
 
 		skb_unpush(skb,6);
-		printk(KERN_INFO" recv from client");
+		printk(KERN_INFO"%s",recv_i2pmm);
+		printk(KERN_INFO"recv from client");
     }
 
     return NF_ACCEPT;
