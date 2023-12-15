@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 
 #define SEND_BUF_LEN       (1024)
-#define DEFAULT_IP         "192.168.1.11"
+#define DEFAULT_IP         "192.168.1.10"
 #define DEFAULT_PORT       (6666)
 #define DEFAULT_SEND_NUM   (100 )
 

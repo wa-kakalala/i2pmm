@@ -27,22 +27,15 @@ static struct nf_hook_ops nf_local_in = {
 	.hook = nf_in_hook_proc,
 	.priv = NULL,
 	.pf = PF_INET,
-	.hooknum = NF_INET_LOCAL_IN ,
+	.hooknum = NF_INET_PRE_ROUTING  ,
 	.priority = NF_IP_PRI_FIRST ,
 };
 
-int net_server_ip = 167880896;  // 192.168.1.10
-int net_client_ip = 184658112;  // 192.168.1.11
+// int net_server_ip = 167880896;  // 192.168.1.10
+// int net_client_ip = 184658112;  // 192.168.1.11
 
-
-unsigned char *skb_unpush(struct sk_buff *skb, unsigned int len)
-{
-	skb->data += len;
-	skb->len  -= len;
-	// if (unlikely(skb->data<skb->head))
-	// 	skb_under_panic(skb, len, __builtin_return_address(0));
-	return skb->data;
-}
+int net_server_ip = 184658112;  // 192.168.1.10
+int net_client_ip = 167880896;  // 192.168.1.11
 
 unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb, 
 		        const struct nf_hook_state * state ){
@@ -71,6 +64,16 @@ unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb,
 		*(data_hdr+4) = 'k';
 		*(data_hdr+5) = 'k';
 
+		//skb->network_header = data_hdr;
+
+		//ipheader = ip_hdr(skb);
+
+		//ipheader->check = 0;
+    	//iph->check = ip_fast_csum((unsigned char*)ipheader, iph->ihl);//计算校验和
+
+		//printk(KERN_INFO"%c",*((char*)data_hdr));
+
+
 		printk(KERN_INFO"send to server");
     }
 
@@ -81,7 +84,9 @@ unsigned int nf_in_hook_proc( void * priv, struct sk_buff * skb,
 		        const struct nf_hook_state * state ){
 	struct iphdr *ipheader;   // IP header
 	char recv_i2pmm[7] = {0};
+	int index = 0;
     //struct udphdr *udpheader; // UDP header
+
 	if(!skb) return NF_ACCEPT;
 	ipheader = ip_hdr(skb); // retrieve the IP headers from the packet
     if( ipheader->protocol == IPPROTO_UDP) { 
@@ -90,20 +95,26 @@ unsigned int nf_in_hook_proc( void * priv, struct sk_buff * skb,
         //    return NF_ACCEPT; // accept UDP packet
         //}
 		if(ipheader->saddr != net_client_ip ) return NF_ACCEPT;
-		// for( index =0;index <14;index++){
-		// 	printk(KERN_INFO"%x",*(skb->data + index));
-		// }
+		for( index =0;index <14;index++){
+			printk(KERN_INFO"%x",*(skb->data + index));
+		}
 
-		*(recv_i2pmm+0) = *(skb->data + 0);
-		*(recv_i2pmm+1) = *(skb->data + 1);
-		*(recv_i2pmm+2) = *(skb->data + 2);
-		*(recv_i2pmm+3) = *(skb->data + 3);
-		*(recv_i2pmm+4) = *(skb->data + 4);
-		*(recv_i2pmm+5) = *(skb->data + 5);
-		*(recv_i2pmm+6) = '\0';
+		printk(KERN_INFO"%c",*(skb->data - 5 ));
+		printk(KERN_INFO"%c",*(skb->data - 4 ));
+		printk(KERN_INFO"%c",*(skb->data - 3 ));
+		printk(KERN_INFO"%c",*(skb->data - 2 ));
+		printk(KERN_INFO"%c",*(skb->data - 1 ));
+		printk(KERN_INFO"%c",*(skb->data - 0 ));
+		// *(recv_i2pmm+0) = *(skb->data + 0);
+		// *(recv_i2pmm+1) = *(skb->data + 1);
+		// *(recv_i2pmm+2) = *(skb->data + 2);
+		// *(recv_i2pmm+3) = *(skb->data + 3);
+		// *(recv_i2pmm+4) = *(skb->data + 4);
+		// *(recv_i2pmm+5) = *(skb->data + 5);
+		// *(recv_i2pmm+6) = '\0';
 
-		skb_unpush(skb,6);
-		printk(KERN_INFO"%s",recv_i2pmm);
+		//skb_pull(skb,6);
+		//printk(KERN_INFO"%s",recv_i2pmm);
 		printk(KERN_INFO"recv from client");
     }
 
