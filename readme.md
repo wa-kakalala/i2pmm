@@ -55,6 +55,7 @@ lsmod | grep i2pmm
 ```shell
 # show
 dmesg
+tail -f /var/log/kern.log
 # clear
 sudo dmesg -c  
 ```

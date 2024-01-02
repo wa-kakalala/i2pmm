@@ -4,6 +4,7 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/ip.h>
+#include <linux/timer.h>
 #include <linux/udp.h>
 
 /**********function define begin**********/
@@ -14,7 +15,6 @@ static int dev_in_proc( struct sk_buff * skb, struct net_device * dev,
 		        struct packet_type * ptype,struct net_device *oridev);
 
 /**********function define end************/
-
 static struct nf_hook_ops nf_local_out = {
 	.hook = nf_out_hook_proc,
 	.priv = NULL,
@@ -28,6 +28,22 @@ static struct packet_type dev_in = {
 	.func = dev_in_proc
 };
 
+typedef struct stat_info_s{
+	unsigned short send_cnt;
+	unsigned short recv_cnt;
+}stat_info_s;
+
+typedef struct vni_type_s {
+	unsigned char stuid[4] ;
+	unsigned short    seq  ;
+}vni_type_s;
+
+// timer
+struct timer_list timer;
+
+volatile stat_info_s    stat_info    = {0,0};
+volatile stat_info_s    stat_info_rz = {0,0};  // return zero
+
 int net_server_ip = 167880896;  // 192.168.1.10
 int net_client_ip = 184658112;  // 192.168.1.11
 
@@ -39,16 +55,11 @@ unsigned char dst_mac[ETH_ALEN]={0xff,0xff,0xff,0xff,0xff,0xff};   /*dst mac add
 
 unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb, 
 		        const struct nf_hook_state * state ){
-	struct iphdr *ipheader;   // IP header
+	//struct iphdr *ipheader;   // IP header
 	struct ethhdr *ethheader = NULL;
 	struct sk_buff * new_skb;
 	int ret = -1;
-	// int index = 0;
-	unsigned char * dataheader = NULL;
-	ipheader = ip_hdr(skb); // retrieve the IP headers from the packet
-    // if( ipheader->protocol == IPPROTO_UDP) { 
-	// 	// printk(KERN_ERR "send to server");
-	// 	if(ipheader->daddr != net_server_ip &&  ipheader->daddr != net_client_ip) return NF_ACCEPT;
+	vni_type_s * pvni_type_s;
 	if( skb->len + 6 > 1500) {
 		printk(KERN_INFO"eth frame is too long \n");
 		goto out;
@@ -65,14 +76,12 @@ unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb,
 		kfree_skb(skb);
 	}
 	
-	dataheader = skb_push(new_skb,6);
-	*(dataheader + 0) = 'y';
-	*(dataheader + 1) = 'y';
-	*(dataheader + 2) = 'r';
-	*(dataheader + 3) = 'w';
-	*(dataheader + 4) = 'k';
-	*(dataheader + 5) = 'k';
+	pvni_type_s = (vni_type_s *)skb_push(new_skb,sizeof(vni_type_s));
+	pvni_type_s->stuid[0] = 1; pvni_type_s->stuid[1] = 7;
+	pvni_type_s->stuid[2] = 1; pvni_type_s->stuid[3] = 8;
+	pvni_type_s->seq = htons((stat_info.send_cnt));
 
+	
 	ethheader = (struct ethhdr*)skb_push(new_skb, ETH_HLEN);
 	memcpy(ethheader->h_source, new_skb->dev->dev_addr, ETH_ALEN);
 	memcpy(ethheader->h_dest, dst_mac, ETH_ALEN);
@@ -82,10 +91,9 @@ unsigned int nf_out_hook_proc( void * priv, struct sk_buff * skb,
 		printk(KERN_ERR "send pkt error");
 		goto out;
 	}
-	printk(KERN_INFO ">>>>>>>>>>>>>>>>>\n");
-	printk(KERN_INFO "send success\n");
-	printk(KERN_INFO "<<<<<<<<<<<<<<<<<\n");
 	ret = 0;
+	stat_info.send_cnt ++;
+	stat_info_rz.send_cnt ++;
         
 out:
 	if(ret != 0 && NULL != new_skb){
@@ -97,21 +105,43 @@ out:
 
 static int dev_in_proc( struct sk_buff * skb, struct net_device * dev,
 		        struct packet_type * ptype,struct net_device *oridev){
-	int idx;
+	vni_type_s * pvni_type_s;
 	skb = skb_share_check(skb,GFP_ATOMIC);
 	if(!skb) goto out;
-	printk("heere<<<<<<<<<<<<<<<");
-	
-	for(idx=0;idx<6;idx++){
-		printk(KERN_INFO "%c\r\n",*((char*)(skb)+idx));
-	}
 
-	skb_pull_rcsum(skb,6);
+	pvni_type_s = (vni_type_s *)(skb->data);
+
+	printk(KERN_INFO" -------------------------\r\n");
+	printk(KERN_INFO"|stuid:\t%d%d%d%d\t\t|\r\n",pvni_type_s->stuid[0],
+	                                           pvni_type_s->stuid[1],
+											   pvni_type_s->stuid[2],
+											   pvni_type_s->stuid[3]);
+	printk(KERN_INFO"|-------------------------|\r\n");										   
+	printk(KERN_INFO"|seq:\t%d\t\t|\r\n",ntohs(pvni_type_s->seq));
+	printk(KERN_INFO" -------------------------\r\n");
+
+	skb_pull_rcsum(skb,sizeof(vni_type_s));
 	skb->protocol = htons(ETH_P_IP);
 	netif_rx(skb);
+	stat_info.recv_cnt   ++;
+	stat_info_rz.recv_cnt++;
     return NET_RX_SUCCESS;
 out:
 	return NET_RX_DROP;
+}
+
+/*timer work function*/
+static void timer_work(struct timer_list* param_timer){
+	printk(KERN_INFO"\r\nstat info:");
+	printk(KERN_INFO" -------------------------");
+	printk(KERN_INFO"|send total: %d\t\t|",stat_info.send_cnt);
+	printk(KERN_INFO"|send info : %u.%upps\t|",stat_info_rz.send_cnt / 60, stat_info_rz.send_cnt % 60 *10/60); stat_info_rz.send_cnt=0;
+	printk(KERN_INFO"|-------------------------");
+	printk(KERN_INFO"|recv total: %d\t\t|",stat_info.recv_cnt);
+	printk(KERN_INFO"|recv info : %u.%upps\t|",stat_info_rz.recv_cnt / 60,stat_info_rz.recv_cnt%60 *10  / 60); stat_info_rz.recv_cnt=0;
+	printk(KERN_INFO" -------------------------\r\n");
+
+	mod_timer(&timer, jiffies + 60 *HZ);
 }
 
 static int __init i2pmm_init(void)
@@ -125,6 +155,11 @@ static int __init i2pmm_init(void)
 		printk(KERN_INFO"nf_out register_hook() succeed !\n");
     }
 	dev_add_pack( &dev_in );
+
+	timer.expires = jiffies + 60 *HZ;  //interval is 60s
+	timer_setup(&timer,timer_work,0);
+	add_timer(&timer);/*start timer*/
+
     return 0;
 }
  
@@ -134,6 +169,7 @@ static void __exit i2pmm_exit(void)
     
 	nf_unregister_net_hook(&init_net,  &nf_local_out );
 	dev_remove_pack( &dev_in );
+	del_timer(&timer); //close timer
 }
  
 module_init(i2pmm_init);
